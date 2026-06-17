@@ -6,7 +6,7 @@ del motor de monitoreo: la GUI sólo consume objetos `SnapshotMonitoreo`
 secuencial, por hilos o por procesos sin cambios en la interfaz.
 """
 
-from UserInterface.models import (
+from userInterface.models import (
     Alerta,
     Estacion,
     Estadisticas,

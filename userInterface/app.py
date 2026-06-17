@@ -26,7 +26,7 @@ import sysconfig
 import tkinter as tk
 from tkinter import ttk
 
-from UserInterface.models import (
+from userInterface.models import (
     Alerta,
     Estacion,
     Estadisticas,
@@ -294,7 +294,7 @@ def _snapshot_demo() -> SnapshotMonitoreo:
     """Construye un snapshot estático de ejemplo."""
     from datetime import datetime
 
-    from UserInterface.models import Medicion
+    from userInterface.models import Medicion
 
     ahora = datetime.now()
     estaciones = [
