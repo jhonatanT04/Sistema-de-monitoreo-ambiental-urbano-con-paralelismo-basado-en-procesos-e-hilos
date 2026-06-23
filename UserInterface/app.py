@@ -46,6 +46,14 @@ COLOR_ESTADO = {
 }
 COLOR_SEVERIDAD = {"Alta": "#c0392b", "Media": "#b9770e", "Baja": "#7f8c8d"}
 
+# NUEVOS COLORES MODERNOS (Paleta Weather)
+BG_PRINCIPAL = "#E8F2F6"      # Celeste grisáceo muy claro (fondo general)
+BG_PANEL = "#FFFFFF"          # Blanco puro para tarjetas
+FG_TEXTO_PRINCIPAL = "#2C3E50" # Azul muy oscuro para textos legibles
+FG_ACCENTO = "#154360"        # Azul  para títulos
+FG_ALERTA_TEXTO = "#E74C3C"   # Rojo moderno
+BORDER_COLOR = "#D6EAF8"      # Borde sutil
+
 
 # ---------------------------------------------------------------------------
 # Información del entorno de ejecución
@@ -103,11 +111,37 @@ class MonitoreoGUI(tk.Tk):
             estilo.theme_use("clam")
         except tk.TclError:
             pass
-        estilo.configure("Titulo.TLabel", font=("TkDefaultFont", 13, "bold"))
-        estilo.configure("Seccion.TLabelframe.Label", font=("TkDefaultFont", 10, "bold"))
-        estilo.configure("Stat.TLabel", font=("TkDefaultFont", 9))
-        estilo.configure("StatVal.TLabel", font=("TkDefaultFont", 14, "bold"))
-        estilo.configure("Treeview", rowheight=24)
+
+        # Forzar el color de fondo en la ventana principal
+        self.configure(bg=BG_PRINCIPAL)
+
+        # Configuración global de Frames (Paneles limpios)
+        estilo.configure("TFrame", background=BG_PRINCIPAL)
+        
+        # Estilos de LabelFrames (Tarjetas blancas)
+        estilo.configure("Seccion.TLabelframe", background=BG_PANEL, relief="flat", borderwidth=1, bordercolor=BORDER_COLOR)
+        estilo.configure("Seccion.TLabelframe.Label", font=("TkDefaultFont", 12, "bold"), background=BG_PANEL, foreground=FG_ACCENTO)
+
+        # Textos generales
+        estilo.configure("TLabel", background=BG_PRINCIPAL, foreground=FG_TEXTO_PRINCIPAL)
+        estilo.configure("Titulo.TLabel", font=("TkDefaultFont", 17, "bold"), foreground=FG_ACCENTO)
+        
+        # Estadísticas numéricas
+        estilo.configure("Stat.TLabel", font=("TkDefaultFont", 9), background=BG_PANEL, foreground="#7F8C8D")
+        estilo.configure("StatVal.TLabel", font=("TkDefaultFont", 18, "bold"), background=BG_PANEL, foreground=FG_TEXTO_PRINCIPAL)
+
+        # Tablas más limpias
+        estilo.configure("Treeview", rowheight=28, background=BG_PANEL, fieldbackground=BG_PANEL, borderwidth=0)
+        estilo.configure("Treeview.Heading", font=("TkDefaultFont", 10, "bold"), background="#D6EAF8", foreground=FG_TEXTO_PRINCIPAL, relief="flat")
+        estilo.map("Treeview.Heading", background=[('active', '#AED6F1')])
+
+
+
+        #estilo.configure("Titulo.TLabel", font=("TkDefaultFont", 13, "bold"))
+        #estilo.configure("Seccion.TLabelframe.Label", font=("TkDefaultFont", 10, "bold"))
+        #estilo.configure("Stat.TLabel", font=("TkDefaultFont", 9))
+        #estilo.configure("StatVal.TLabel", font=("TkDefaultFont", 14, "bold"))
+        #estilo.configure("Treeview", rowheight=24)
 
     # -- Cabecera: controles + estado ---------------------------------------
     def _construir_cabecera(self) -> None:
@@ -210,17 +244,23 @@ class MonitoreoGUI(tk.Tk):
             ("Prom/ciclo (s)", "tiempo_promedio_ciclo_s"),
         ]
         grid = ttk.Frame(caja)
-        grid.pack(fill="x")
+        grid.pack(fill="x", expand=True, pady=(5))
+
+        for col in range(3):
+            grid.columnconfigure(col, weight=1)
+
+
         for i, (titulo, clave) in enumerate(items):
             var = tk.StringVar(value="0")
             self._stats_vars[clave] = var
-            celda = ttk.Frame(grid, padding=4)
-            celda.grid(row=i // 3, column=i % 3, sticky="w", padx=4, pady=2)
-            ttk.Label(celda, textvariable=var, style="StatVal.TLabel").pack(anchor="w")
-            ttk.Label(celda, text=titulo, style="Stat.TLabel").pack(anchor="w")
+            celda = ttk.Frame(grid, padding=5)
+            celda.grid(row=i // 3, column=i % 3, sticky="nsew", padx=5, pady=5)
+
+            ttk.Label(celda, textvariable=var, style="StatVal.TLabel", anchor="center").pack(fill="x")
+            ttk.Label(celda, text=titulo, style="Stat.TLabel", anchor="center").pack(fill="x")
 
         fila = ttk.Frame(caja)
-        fila.pack(fill="x", pady=(6, 0))
+        fila.pack(fill="x", pady=(10, 0))
         ttk.Label(fila, text="Zona de mayor riesgo:").pack(side="left")
         self._lbl_zona = ttk.Label(fila, text="—", font=("TkDefaultFont", 10, "bold"),
                                    foreground="#c0392b")
@@ -246,12 +286,25 @@ class MonitoreoGUI(tk.Tk):
         caja = ttk.Labelframe(padre, text="Alertas activas", padding=8,
                              style="Seccion.TLabelframe")
         caja.pack(fill="both", expand=True, pady=(10, 0))
-        self._lista_alertas = tk.Listbox(caja, activestyle="none", height=6,
-                                          highlightthickness=0, borderwidth=0)
-        scroll = ttk.Scrollbar(caja, orient="vertical", command=self._lista_alertas.yview)
-        self._lista_alertas.configure(yscrollcommand=scroll.set)
-        self._lista_alertas.pack(side="left", fill="both", expand=True)
+
+        #  Usamos Text para mostrar alertas con colores semánticos según severidad.
+        self._texto_alertas = tk.Text(caja, height=6, wrap="word", 
+                                      highlightthickness=0, borderwidth=0,
+                                      font=("TkDefaultFont", 9),
+                                      background=BG_PANEL, foreground=FG_TEXTO_PRINCIPAL,
+                                      state="disabled") # Comienza deshabilitado para evitar escritura
+        
+        scroll = ttk.Scrollbar(caja, orient="vertical", command=self._texto_alertas.yview)
+        self._texto_alertas.configure(yscrollcommand=scroll.set)
+        
+        self._texto_alertas.pack(side="left", fill="both", expand=True)
         scroll.pack(side="right", fill="y")
+        
+        # Configurar colores semánticos dentro del texto
+        self._texto_alertas.tag_config("Alta", foreground=COLOR_SEVERIDAD["Alta"], font=("TkDefaultFont", 9, "bold"))
+        self._texto_alertas.tag_config("Media", foreground=COLOR_SEVERIDAD["Media"])
+        self._texto_alertas.tag_config("Baja", foreground=COLOR_SEVERIDAD["Baja"])
+        self._texto_alertas.tag_config("SinAlertas", foreground="#BDC3C7")
 
     def _construir_entorno(self, padre: ttk.Frame) -> None:
         self._entorno_caja = ttk.Labelframe(padre, text="Entorno de ejecución", padding=8,
@@ -310,7 +363,7 @@ class MonitoreoGUI(tk.Tk):
             self._controlador.detener()
         self.destroy()
 
-    # -- Sondeo de la cola (HILO PRINCIPAL) ---------------------------------
+    # -- Sondeo de la cola (HILO PRINCIPAL)
     def _sondear_cola(self) -> None:
         ultimo: SnapshotMonitoreo | None = None
         try:
@@ -328,7 +381,7 @@ class MonitoreoGUI(tk.Tk):
                 self._spin_ciclos.config(state="normal")
         self.after(INTERVALO_REFRESCO_MS, self._sondear_cola)
 
-    # -- Pintado de un snapshot (HILO PRINCIPAL) ----------------------------
+    # -- Pintado de un snapshot (HILO PRINCIPAL)
     def aplicar_snapshot(self, snap: SnapshotMonitoreo) -> None:
         self._lbl_modo.config(text=f"Modo activo: {snap.modo.value}")
         self._lbl_ciclo.config(text=f"Ciclo: {snap.ciclo_actual} / {snap.ciclos_totales}")
@@ -368,24 +421,20 @@ class MonitoreoGUI(tk.Tk):
             )
 
         # Alertas.
-        self._lista_alertas.delete(0, "end")
+        self._texto_alertas.config(state="normal") # Habilitar para escribir
+        self._texto_alertas.delete(1.0, "end")     # Limpiar todo
+        
         if not snap.alertas:
-            self._lista_alertas.insert("end", "Sin alertas activas.")
-            self._lista_alertas.itemconfig("end", foreground="#888888")
+            self._texto_alertas.insert("end", "Sin alertas activas.\n", "SinAlertas")
         else:
             for al in reversed(snap.alertas):
                 hora = al.instante.strftime("%H:%M:%S")
-                self._lista_alertas.insert(
-                    "end", f"[{hora}] {al.zona} — {al.mensaje} ({al.severidad})"
-                )
-                self._lista_alertas.itemconfig(
-                    "end", foreground=COLOR_SEVERIDAD.get(al.severidad, "#333333")
-                )
-
-        self._lbl_pie.config(
-            text=f"{len(snap.estaciones)} estaciones · "
-                 f"{e.mediciones_procesadas} mediciones · {e.alertas_generadas} alertas"
-        )
+                mensaje = f"[{hora}] {al.zona} — {al.mensaje} ({al.severidad})\n"
+                
+                # Insertar asignando el tag de color según severidad
+                self._texto_alertas.insert("end", mensaje, al.severidad)
+                
+        self._texto_alertas.config(state="disabled") # Volver a bloquear
 
 
 def main() -> None:
