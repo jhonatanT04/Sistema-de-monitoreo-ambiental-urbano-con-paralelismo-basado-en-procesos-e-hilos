@@ -70,27 +70,36 @@ python3 main.py --gui
 python3 -m UserInterface
 ```
 
-En la ventana se elige el **modo** (Secuencial / Hilos / Procesos) y se pulsa
-**▶ Iniciar**. La GUI muestra el listado de estaciones, su estado (activa,
-esperando, procesando, finalizada), la última medición, las alertas activas, las
-estadísticas generales, el tiempo de ejecución, el modo activo y la información
-del entorno (versión de Python, sistema operativo, núcleos y estado del GIL).
+En la ventana se elige el **modo** (Secuencial / Hilos / Procesos), el número de
+**estaciones** (4–12) y de **ciclos** (10–30) con los selectores de la barra
+superior, y se pulsa **▶ Iniciar**. Así se pueden probar los tamaños 4×10, 8×20
+y 12×30 sin tocar el código. La GUI muestra el listado de estaciones, su estado
+(activa, esperando, procesando, finalizada), la última medición, las alertas
+activas, las estadísticas generales, el tiempo de ejecución, el modo activo y la
+información del entorno (versión de Python, sistema operativo, núcleos y estado
+del GIL).
 
 ### Por consola (comparación de rendimiento)
 
 ```bash
-python3 main.py                      # compara los 3 modos e imprime el speedup
-python3 main.py --modo procesos      # ejecuta un solo modo
-python3 main.py --ciclos 20          # cambia el número de ciclos (mín. 10)
+python3 main.py                           # compara los 3 modos e imprime el speedup
+python3 main.py --modo procesos           # ejecuta un solo modo
+python3 main.py --ciclos 20               # cambia el número de ciclos (mín. 10)
+python3 main.py --estaciones 8 --ciclos 20    # cambia el tamaño de la simulación
+python3 main.py --estaciones 12 --ciclos 30 --repeticiones 3   # promedia 3 corridas
 python3 main.py --ciclos 30 --carga 800   # ajusta la carga de CPU del análisis
 ```
+
+Con `--repeticiones N` cada modo se ejecuta `N` veces y se promedian los tiempos
+(recomendado `3`); al final se imprimen explícitamente `Sthread = Ts/Tthread` y
+`Sprocess = Ts/Tprocess`.
 
 ---
 
 ## 🔒 Mecanismos de concurrencia utilizados
 
 La práctica exige **al menos 2** mecanismos por versión; este proyecto usa **3**
-en cada una.
+en la versión de hilos y **4** en la de procesos.
 
 ### Versión basada en hilos (`threading`) — `ControladorMonitoreo.ejecutar_hilos`
 
@@ -110,6 +119,7 @@ estructura de datos (el buffer del controlador), protegida por el `Lock`.
 | `multiprocessing.Queue` | **Comunicación entre procesos**: cada estación-proceso envía sus mediciones al controlador. |
 | `multiprocessing.Barrier` | Sincroniza el **inicio de cada ciclo** entre todos los procesos-estación. |
 | `multiprocessing.Event` | Señal de **parada** propagada a todos los procesos. |
+| `multiprocessing.Semaphore` | **Limita** cuántos procesos ejecutan el análisis CPU-bound a la vez (no más que núcleos disponibles), evitando saturar la CPU. |
 
 Las mediciones son objetos *inmutables y picklables*, por lo que viajan sin
 problemas por la `Queue`.
@@ -165,12 +175,10 @@ Cada configuración se ejecutó **3 veces**; los valores son el promedio.
 ## 🧪 Reproducir las pruebas
 
 ```bash
-# Tres ejecuciones de cada tamaño
-for c in 10 20 30; do
-  for r in 1 2 3; do
-    python3 main.py --ciclos $c | grep -E "Secuencial|Hilos|Procesos"
-  done
-done
+# Los tres tamaños pedidos, cada uno promediando 3 corridas por modo
+python3 main.py --estaciones 4  --ciclos 10 --repeticiones 3
+python3 main.py --estaciones 8  --ciclos 20 --repeticiones 3
+python3 main.py --estaciones 12 --ciclos 30 --repeticiones 3
 ```
 
 ---

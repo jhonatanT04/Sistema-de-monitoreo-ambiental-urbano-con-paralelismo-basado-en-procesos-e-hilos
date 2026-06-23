@@ -56,32 +56,49 @@ def _imprimir_estadisticas(stats: Estadisticas) -> None:
         )
 
 
-def comparar(ciclos: int, carga: int) -> None:
+def comparar(ciclos: int, carga: int, estaciones: int, repeticiones: int = 1) -> None:
     _imprimir_entorno()
+    print(f"Configuración: {estaciones} estaciones × {ciclos} ciclos · "
+          f"{repeticiones} repetición(es) por modo\n")
     tiempos: dict[ModoEjecucion, float] = {}
     for modo in ModoEjecucion:
-        ctrl = ControladorMonitoreo(ciclos=ciclos, carga_cpu=carga)
-        t = perf_counter()
-        snap = ctrl.ejecutar(modo)
-        dt = perf_counter() - t
+        muestras: list[float] = []
+        snap = None
+        for _ in range(max(1, repeticiones)):
+            ctrl = ControladorMonitoreo(
+                ciclos=ciclos, carga_cpu=carga, n_estaciones=estaciones
+            )
+            t = perf_counter()
+            snap = ctrl.ejecutar(modo)
+            muestras.append(perf_counter() - t)
+        dt = sum(muestras) / len(muestras)
         tiempos[modo] = dt
-        print(f"\n>>> MODO {modo.value.upper()}  ({dt:.3f} s)")
-        _imprimir_estadisticas(snap.estadisticas)
+        detalle = "  ".join(f"{m:.3f}s" for m in muestras)
+        print(f"\n>>> MODO {modo.value.upper()}  (promedio {dt:.3f} s · muestras: {detalle})")
+        if snap is not None:
+            _imprimir_estadisticas(snap.estadisticas)
 
     base = tiempos[ModoEjecucion.SECUENCIAL]
+    t_hilos = tiempos[ModoEjecucion.HILOS]
+    t_proc = tiempos[ModoEjecucion.PROCESOS]
     print("\n" + "=" * 70)
     print("COMPARATIVA DE RENDIMIENTO (línea base: secuencial)")
     print("=" * 70)
     for modo, dt in tiempos.items():
         speedup = base / dt if dt else float("inf")
         print(f"  {modo.value:11} {dt:7.3f} s   speedup x{speedup:.2f}")
+    print("-" * 70)
+    print(f"  Sthread  = Ts / Tthread  = {base:.3f} / {t_hilos:.3f} = "
+          f"x{(base / t_hilos if t_hilos else float('inf')):.2f}")
+    print(f"  Sprocess = Ts / Tprocess = {base:.3f} / {t_proc:.3f} = "
+          f"x{(base / t_proc if t_proc else float('inf')):.2f}")
     print("=" * 70)
 
 
-def ejecutar_modo(modo_txt: str, ciclos: int, carga: int) -> None:
+def ejecutar_modo(modo_txt: str, ciclos: int, carga: int, estaciones: int) -> None:
     _imprimir_entorno()
     modo = ModoEjecucion[modo_txt.upper()]
-    ctrl = ControladorMonitoreo(ciclos=ciclos, carga_cpu=carga)
+    ctrl = ControladorMonitoreo(ciclos=ciclos, carga_cpu=carga, n_estaciones=estaciones)
     t = perf_counter()
     snap = ctrl.ejecutar(modo)
     dt = perf_counter() - t
@@ -97,7 +114,12 @@ def main() -> None:
         help="Ejecuta un solo modo (por defecto compara los tres).",
     )
     parser.add_argument("--ciclos", type=int, default=12, help="Ciclos de simulación (mín. 10).")
+    parser.add_argument("--estaciones", type=int, default=6, help="Número de estaciones (mín. 4).")
     parser.add_argument("--carga", type=int, default=600, help="Carga de CPU del análisis.")
+    parser.add_argument(
+        "--repeticiones", type=int, default=1,
+        help="Repeticiones por modo para promediar tiempos (recomendado 3).",
+    )
     parser.add_argument("--gui", action="store_true", help="Abre la interfaz gráfica.")
     args = parser.parse_args()
 
@@ -108,9 +130,9 @@ def main() -> None:
         return
 
     if args.modo:
-        ejecutar_modo(args.modo, args.ciclos, args.carga)
+        ejecutar_modo(args.modo, args.ciclos, args.carga, args.estaciones)
     else:
-        comparar(args.ciclos, args.carga)
+        comparar(args.ciclos, args.carga, args.estaciones, args.repeticiones)
 
 
 if __name__ == "__main__":

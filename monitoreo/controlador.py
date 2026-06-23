@@ -12,6 +12,8 @@ Mecanismos de concurrencia usados (más de los dos exigidos en cada caso):
 * Procesos   -> multiprocessing.Queue (mediciones estación -> controlador)
                 multiprocessing.Barrier (sincroniza el inicio de cada ciclo)
                 multiprocessing.Event (señal de parada)
+                multiprocessing.Semaphore (limita cuántos procesos ejecutan el
+                    análisis CPU-bound a la vez)
 
 `publicar` es un callback opcional `Callable[[SnapshotMonitoreo], None]` que
 se invoca al final de cada ciclo. La GUI pasa `cola.put` (cola thread-safe);
@@ -64,12 +66,15 @@ def _trabajo_estacion(
     cola: "mp.Queue",
     barrera: "mp.Barrier",
     stop: "mp.Event",
+    semaforo_analisis: "mp.Semaphore",
 ) -> None:
     """Cuerpo de cada proceso-estación (modo procesos).
 
     Sincroniza el inicio de cada ciclo con `barrera`, genera mediciones (con
-    el cálculo CPU-bound), y las envía al controlador por `cola`. Termina al
-    completar los ciclos o cuando `stop` se activa.
+    el cálculo CPU-bound), y las envía al controlador por `cola`. El cálculo
+    intensivo se protege con `semaforo_analisis` para que no más de N procesos
+    analicen a la vez (evita saturar la CPU). Termina al completar los ciclos
+    o cuando `stop` se activa.
     """
     for ciclo in range(ciclos):
         if stop.is_set():
@@ -78,7 +83,8 @@ def _trabajo_estacion(
             barrera.wait()
         except threading.BrokenBarrierError:
             break
-        mediciones, _ = estacion.trabajar_ciclo(ciclo, carga_cpu)
+        with semaforo_analisis:  # limita el análisis CPU-bound concurrente
+            mediciones, _ = estacion.trabajar_ciclo(ciclo, carga_cpu)
         for m in mediciones:
             cola.put(m)
         cola.put(_FinCiclo(estacion.id, ciclo))
@@ -94,10 +100,19 @@ class ControladorMonitoreo:
         estaciones: list[EstacionAmbiental] | None = None,
         ciclos: int = CICLOS_DEFECTO,
         carga_cpu: int = AnalizadorDatos().carga,
+        n_estaciones: int | None = None,
+        max_analisis: int | None = None,
     ) -> None:
-        self.estaciones = estaciones if estaciones is not None else crear_estaciones()
+        if estaciones is not None:
+            self.estaciones = estaciones
+        elif n_estaciones is not None:
+            self.estaciones = crear_estaciones(n_estaciones)
+        else:
+            self.estaciones = crear_estaciones()
         self.ciclos = ciclos
         self.analizador = AnalizadorDatos(carga_cpu)
+        # Máximo de procesos que ejecutan el análisis CPU-bound a la vez.
+        self.max_analisis = max_analisis if max_analisis is not None else mp.cpu_count()
         self._stop = threading.Event()
         self._reset()
 
@@ -285,11 +300,16 @@ class ControladorMonitoreo:
         cola: mp.Queue = ctx.Queue()
         barrera = ctx.Barrier(n)
         stop_mp = ctx.Event()
+        # Semáforo: limita cuántos procesos analizan (CPU-bound) a la vez.
+        semaforo = ctx.Semaphore(max(1, min(self.max_analisis, n)))
 
         procesos = [
             ctx.Process(
                 target=_trabajo_estacion,
-                args=(est, self.ciclos, self.analizador.carga, cola, barrera, stop_mp),
+                args=(
+                    est, self.ciclos, self.analizador.carga,
+                    cola, barrera, stop_mp, semaforo,
+                ),
                 name=est.nombre,
                 daemon=True,
             )

@@ -72,10 +72,11 @@ def _info_entorno() -> dict[str, str]:
 class MonitoreoGUI(tk.Tk):
     """Ventana principal del sistema de monitoreo."""
 
-    def __init__(self, ciclos: int = 12, carga_cpu: int = 600) -> None:
+    def __init__(self, ciclos: int = 12, carga_cpu: int = 600, estaciones: int = 6) -> None:
         super().__init__()
         self._ciclos = ciclos
         self._carga = carga_cpu
+        self._estaciones = estaciones
 
         # Comunicación hilo-trabajador -> GUI (thread-safe).
         self._cola: "queue.Queue[SnapshotMonitoreo]" = queue.Queue()
@@ -123,6 +124,16 @@ class MonitoreoGUI(tk.Tk):
         )
         self._combo_modo.current(0)
         self._combo_modo.pack(side="left")
+
+        ttk.Label(barra, text="Estaciones:").pack(side="left", padx=(12, 4))
+        self._spin_estaciones = ttk.Spinbox(barra, from_=4, to=12, width=4)
+        self._spin_estaciones.set(str(self._estaciones))
+        self._spin_estaciones.pack(side="left")
+
+        ttk.Label(barra, text="Ciclos:").pack(side="left", padx=(12, 4))
+        self._spin_ciclos = ttk.Spinbox(barra, from_=10, to=30, width=4)
+        self._spin_ciclos.set(str(self._ciclos))
+        self._spin_ciclos.pack(side="left")
 
         self._btn_iniciar = ttk.Button(barra, text="▶ Iniciar", command=self._iniciar)
         self._btn_iniciar.pack(side="left", padx=(10, 4))
@@ -267,7 +278,14 @@ class MonitoreoGUI(tk.Tk):
         if self._hilo and self._hilo.is_alive():
             return
         modo = ModoEjecucion(self._combo_modo.get())
-        self._controlador = ControladorMonitoreo(ciclos=self._ciclos, carga_cpu=self._carga)
+        try:
+            n_est = max(4, int(self._spin_estaciones.get()))
+            n_ciclos = max(10, int(self._spin_ciclos.get()))
+        except (TypeError, ValueError):
+            n_est, n_ciclos = self._estaciones, self._ciclos
+        self._controlador = ControladorMonitoreo(
+            ciclos=n_ciclos, carga_cpu=self._carga, n_estaciones=n_est
+        )
 
         def trabajo() -> None:
             # Corre en el HILO TRABAJADOR. Sólo publica snapshots en la cola.
@@ -277,6 +295,8 @@ class MonitoreoGUI(tk.Tk):
         self._btn_iniciar.config(state="disabled")
         self._btn_detener.config(state="normal")
         self._combo_modo.config(state="disabled")
+        self._spin_estaciones.config(state="disabled")
+        self._spin_ciclos.config(state="disabled")
         self._lbl_pie.config(text=f"Ejecutando en modo {modo.value}…")
         self._hilo.start()
 
@@ -304,6 +324,8 @@ class MonitoreoGUI(tk.Tk):
                 self._btn_iniciar.config(state="normal")
                 self._btn_detener.config(state="disabled")
                 self._combo_modo.config(state="readonly")
+                self._spin_estaciones.config(state="normal")
+                self._spin_ciclos.config(state="normal")
         self.after(INTERVALO_REFRESCO_MS, self._sondear_cola)
 
     # -- Pintado de un snapshot (HILO PRINCIPAL) ----------------------------

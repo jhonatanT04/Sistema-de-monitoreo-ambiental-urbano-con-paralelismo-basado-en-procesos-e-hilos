@@ -71,10 +71,12 @@ class EstacionAmbiental:
         """Ejecuta el trabajo de un ciclo: generar + análisis CPU-bound.
 
         Devuelve las mediciones y el índice ambiental calculado. El cómputo
-        pesado ocurre aquí, dentro de la unidad concurrente.
+        pesado ocurre aquí, dentro de la unidad concurrente. El estado pasa por
+        ACTIVA (generando lecturas) y PROCESANDO (cálculo CPU-bound).
         """
-        self.estado = EstadoEstacion.PROCESANDO
+        self.estado = EstadoEstacion.ACTIVA
         mediciones = self.generar_mediciones(ciclo)
+        self.estado = EstadoEstacion.PROCESANDO
         indice = AnalizadorDatos.indice_ambiental(self._historial, carga_cpu)
         self.estado = EstadoEstacion.ESPERANDO
         return mediciones, indice
