@@ -1,10 +1,3 @@
-"""Modelos de dominio del sistema de monitoreo ambiental.
-
-Todas las estructuras de datos son inmutables (`frozen=True`) y picklables,
-de modo que las `Medicion` puedan viajar por una `multiprocessing.Queue`
-desde los procesos de las estaciones hacia el controlador.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -13,11 +6,6 @@ from enum import Enum
 
 
 class Variable(Enum):
-    """Variable ambiental medida por una estación.
-
-    Cada miembro lleva su etiqueta legible, su unidad y el umbral por encima
-    del cual se genera una alerta.
-    """
 
     TEMPERATURA = ("Temperatura", "°C", 26.0)
     HUMEDAD = ("Humedad", "%", 90.0)
@@ -31,12 +19,11 @@ class Variable(Enum):
         self.unidad = unidad
         self.umbral = umbral
 
-    def __str__(self) -> str:  # pragma: no cover - trivial
+    def __str__(self) -> str:
         return self.etiqueta
 
 
 class EstadoEstacion(str, Enum):
-    """Estado del ciclo de vida de una estación."""
 
     ACTIVA = "Activa"
     ESPERANDO = "Esperando"
@@ -45,7 +32,6 @@ class EstadoEstacion(str, Enum):
 
 
 class ModoEjecucion(str, Enum):
-    """Modo con el que el controlador procesa las estaciones."""
 
     SECUENCIAL = "Secuencial"
     HILOS = "Hilos"
@@ -53,8 +39,9 @@ class ModoEjecucion(str, Enum):
 
 
 @dataclass(frozen=True)
+
+
 class Medicion:
-    """Lectura generada por una estación en un instante dado."""
 
     estacion: str
     zona: str
@@ -68,7 +55,6 @@ class Medicion:
 
     @property
     def en_alerta(self) -> bool:
-        """True si la lectura supera el umbral de su variable."""
         return self.valor > self.variable.umbral
 
     def __str__(self) -> str:
@@ -76,8 +62,9 @@ class Medicion:
 
 
 @dataclass(frozen=True)
+
+
 class AlertaAmbiental:
-    """Alerta emitida cuando una variable supera su umbral."""
 
     estacion: str
     zona: str
@@ -115,8 +102,9 @@ class AlertaAmbiental:
 
 
 @dataclass(frozen=True)
+
+
 class EstadisticaVariable:
-    """Resumen estadístico de una variable sobre las mediciones recibidas."""
 
     variable: Variable
     n: int
@@ -126,8 +114,9 @@ class EstadisticaVariable:
 
 
 @dataclass(frozen=True)
+
+
 class Estadisticas:
-    """Estadísticas generales calculadas por `AnalizadorDatos`."""
 
     por_variable: dict[Variable, EstadisticaVariable] = field(default_factory=dict)
     mediciones_procesadas: int = 0
@@ -135,15 +124,15 @@ class Estadisticas:
     zona_mayor_riesgo: str = "—"
     tiempo_total_s: float = 0.0
     tiempo_promedio_ciclo_s: float = 0.0
-    # Conteos rápidos de estado para la cabecera de la GUI.
     estaciones_totales: int = 0
     estaciones_activas: int = 0
     estaciones_finalizadas: int = 0
 
 
 @dataclass(frozen=True)
+
+
 class VistaEstacion:
-    """Foto del estado de una estación para la GUI (no es la estación viva)."""
 
     id: int
     nombre: str
@@ -153,8 +142,9 @@ class VistaEstacion:
 
 
 @dataclass(frozen=True)
+
+
 class SnapshotMonitoreo:
-    """Foto completa del sistema en un instante. Única unidad que ve la GUI."""
 
     estaciones: list[VistaEstacion] = field(default_factory=list)
     alertas: list[AlertaAmbiental] = field(default_factory=list)

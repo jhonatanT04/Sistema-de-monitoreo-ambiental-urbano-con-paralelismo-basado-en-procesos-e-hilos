@@ -1,19 +1,3 @@
-"""Análisis de datos del sistema de monitoreo.
-
-`AnalizadorDatos` cumple dos roles:
-
-1.  `estadisticas(...)`: agrega las mediciones recibidas (promedio, mínimo,
-    máximo por variable, conteos, zona de mayor riesgo, métricas de tiempo).
-    Es liviano.
-
-2.  `indice_ambiental(...)`: cálculo **intensivo en CPU** (media móvil
-    ponderada + funciones trigonométricas, repetido muchas veces). Cada
-    estación lo ejecuta en cada ciclo, de modo que la carga de cómputo recae
-    sobre la unidad concurrente. Esto es lo que hace comparable hilos vs.
-    procesos: al ser CPU-bound y Python puro, mantiene tomado el GIL —los
-    hilos se serializan, los procesos sí escalan en varios núcleos.
-"""
-
 from __future__ import annotations
 
 import math
@@ -27,26 +11,16 @@ from monitoreo.dominio import (
     Variable,
 )
 
-# Repeticiones por defecto del núcleo de cómputo. Más alto => más carga de CPU.
 CARGA_CPU_DEFECTO = 600
 
 
 class AnalizadorDatos:
-    """Procesa mediciones y ofrece el cálculo CPU-bound de carga."""
 
     def __init__(self, carga_cpu: int = CARGA_CPU_DEFECTO) -> None:
         self.carga = carga_cpu
 
-    # ------------------------------------------------------------------
-    # Núcleo intensivo en CPU (Python puro, mantiene el GIL).
-    # ------------------------------------------------------------------
     @staticmethod
     def indice_ambiental(valores: list[float], repeticiones: int) -> float:
-        """Índice ambiental compuesto. Trabajo deliberadamente CPU-bound.
-
-        Aplica una media móvil ponderada con un kernel trigonométrico y repite
-        el barrido `repeticiones` veces para simular una carga real de análisis.
-        """
         if not valores:
             return 0.0
         n = len(valores)
@@ -63,9 +37,6 @@ class AnalizadorDatos:
             acumulado += parcial
         return acumulado / repeticiones
 
-    # ------------------------------------------------------------------
-    # Agregación estadística (liviana).
-    # ------------------------------------------------------------------
     def estadisticas(
         self,
         mediciones: list[Medicion],
@@ -73,7 +44,6 @@ class AnalizadorDatos:
         tiempos_ciclo: list[float],
         tiempo_total: float,
     ) -> Estadisticas:
-        """Calcula las estadísticas generales sobre las mediciones acumuladas."""
         por_variable: dict[Variable, EstadisticaVariable] = {}
         valores_por_var: dict[Variable, list[float]] = {}
         for m in mediciones:

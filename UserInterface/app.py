@@ -1,23 +1,3 @@
-"""Interfaz gráfica (Tkinter) del Sistema de Monitoreo Ambiental Urbano.
-
-DECISIÓN DE HILOS
------------------
-Tkinter NO es thread-safe: todos los widgets deben tocarse desde el mismo
-hilo que ejecuta `mainloop()`. Por eso la GUI vive en el HILO PRINCIPAL.
-
-La simulación (secuencial, por hilos o por procesos) se lanza en un HILO
-TRABAJADOR para no congelar la ventana. Ese hilo NO toca widgets: el
-controlador publica cada ciclo como `SnapshotMonitoreo` mediante el callback
-`cola.put` sobre una `queue.Queue` thread-safe. La GUI se reprograma con
-`self.after(...)` y drena esa cola en el hilo principal, donde —y sólo
-allí— se actualizan los widgets. Así se evitan actualizaciones inseguras
-desde hilos secundarios.
-
-Ejecución:
-    python -m UserInterface
-    python main.py --gui
-"""
-
 from __future__ import annotations
 
 import multiprocessing
@@ -46,18 +26,14 @@ COLOR_ESTADO = {
 }
 COLOR_SEVERIDAD = {"Alta": "#c0392b", "Media": "#b9770e", "Baja": "#7f8c8d"}
 
-# NUEVOS COLORES MODERNOS (Paleta Weather)
-BG_PRINCIPAL = "#E8F2F6"      # Celeste grisáceo muy claro (fondo general)
-BG_PANEL = "#FFFFFF"          # Blanco puro para tarjetas
-FG_TEXTO_PRINCIPAL = "#2C3E50" # Azul muy oscuro para textos legibles
-FG_ACCENTO = "#154360"        # Azul  para títulos
-FG_ALERTA_TEXTO = "#E74C3C"   # Rojo moderno
-BORDER_COLOR = "#D6EAF8"      # Borde sutil
+BG_PRINCIPAL = "#E8F2F6"
+BG_PANEL = "#FFFFFF"
+FG_TEXTO_PRINCIPAL = "#2C3E50"
+FG_ACCENTO = "#154360"
+FG_ALERTA_TEXTO = "#E74C3C"
+BORDER_COLOR = "#D6EAF8"
 
 
-# ---------------------------------------------------------------------------
-# Información del entorno de ejecución
-# ---------------------------------------------------------------------------
 def _estado_gil() -> str:
     is_gil_enabled = getattr(sys, "_is_gil_enabled", None)
     if callable(is_gil_enabled):
@@ -76,9 +52,7 @@ def _info_entorno() -> dict[str, str]:
     }
 
 
-# ---------------------------------------------------------------------------
 class MonitoreoGUI(tk.Tk):
-    """Ventana principal del sistema de monitoreo."""
 
     def __init__(self, ciclos: int = 12, carga_cpu: int = 600, estaciones: int = 6) -> None:
         super().__init__()
@@ -86,7 +60,6 @@ class MonitoreoGUI(tk.Tk):
         self._carga = carga_cpu
         self._estaciones = estaciones
 
-        # Comunicación hilo-trabajador -> GUI (thread-safe).
         self._cola: "queue.Queue[SnapshotMonitoreo]" = queue.Queue()
         self._controlador: ControladorMonitoreo | None = None
         self._hilo: threading.Thread | None = None
@@ -104,7 +77,6 @@ class MonitoreoGUI(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self._al_cerrar)
         self.after(INTERVALO_REFRESCO_MS, self._sondear_cola)
 
-    # -- Estilos ------------------------------------------------------------
     def _configurar_estilos(self) -> None:
         estilo = ttk.Style(self)
         try:
@@ -112,38 +84,23 @@ class MonitoreoGUI(tk.Tk):
         except tk.TclError:
             pass
 
-        # Forzar el color de fondo en la ventana principal
         self.configure(bg=BG_PRINCIPAL)
 
-        # Configuración global de Frames (Paneles limpios)
         estilo.configure("TFrame", background=BG_PRINCIPAL)
-        
-        # Estilos de LabelFrames (Tarjetas blancas)
+
         estilo.configure("Seccion.TLabelframe", background=BG_PANEL, relief="flat", borderwidth=1, bordercolor=BORDER_COLOR)
         estilo.configure("Seccion.TLabelframe.Label", font=("TkDefaultFont", 12, "bold"), background=BG_PANEL, foreground=FG_ACCENTO)
 
-        # Textos generales
         estilo.configure("TLabel", background=BG_PRINCIPAL, foreground=FG_TEXTO_PRINCIPAL)
         estilo.configure("Titulo.TLabel", font=("TkDefaultFont", 17, "bold"), foreground=FG_ACCENTO)
-        
-        # Estadísticas numéricas
+
         estilo.configure("Stat.TLabel", font=("TkDefaultFont", 9), background=BG_PANEL, foreground="#7F8C8D")
         estilo.configure("StatVal.TLabel", font=("TkDefaultFont", 18, "bold"), background=BG_PANEL, foreground=FG_TEXTO_PRINCIPAL)
 
-        # Tablas más limpias
         estilo.configure("Treeview", rowheight=28, background=BG_PANEL, fieldbackground=BG_PANEL, borderwidth=0)
         estilo.configure("Treeview.Heading", font=("TkDefaultFont", 10, "bold"), background="#D6EAF8", foreground=FG_TEXTO_PRINCIPAL, relief="flat")
         estilo.map("Treeview.Heading", background=[('active', '#AED6F1')])
 
-
-
-        #estilo.configure("Titulo.TLabel", font=("TkDefaultFont", 13, "bold"))
-        #estilo.configure("Seccion.TLabelframe.Label", font=("TkDefaultFont", 10, "bold"))
-        #estilo.configure("Stat.TLabel", font=("TkDefaultFont", 9))
-        #estilo.configure("StatVal.TLabel", font=("TkDefaultFont", 14, "bold"))
-        #estilo.configure("Treeview", rowheight=24)
-
-    # -- Cabecera: controles + estado ---------------------------------------
     def _construir_cabecera(self) -> None:
         barra = ttk.Frame(self, padding=(12, 10))
         barra.pack(fill="x")
@@ -181,7 +138,6 @@ class MonitoreoGUI(tk.Tk):
 
         ttk.Separator(self, orient="horizontal").pack(fill="x")
 
-        # Segunda fila: modo activo, ciclo, tiempo.
         info = ttk.Frame(self, padding=(12, 6))
         info.pack(fill="x")
         self._lbl_modo = ttk.Label(info, text="Modo activo: —")
@@ -192,12 +148,10 @@ class MonitoreoGUI(tk.Tk):
         self._lbl_tiempo.pack(side="left")
         ttk.Separator(self, orient="horizontal").pack(fill="x")
 
-    # -- Cuerpo -------------------------------------------------------------
     def _construir_cuerpo(self) -> None:
         cuerpo = ttk.Frame(self, padding=12)
         cuerpo.pack(fill="both", expand=True)
 
-        # Izquierda: estaciones.
         izq = ttk.Labelframe(cuerpo, text="Estaciones ambientales", padding=8,
                              style="Seccion.TLabelframe")
         izq.pack(side="left", fill="both", expand=True)
@@ -221,7 +175,6 @@ class MonitoreoGUI(tk.Tk):
         self._tabla.pack(side="left", fill="both", expand=True)
         scroll.pack(side="right", fill="y")
 
-        # Derecha: estadísticas + por-variable + alertas + entorno.
         der = ttk.Frame(cuerpo)
         der.pack(side="right", fill="both", padx=(12, 0))
 
@@ -248,7 +201,6 @@ class MonitoreoGUI(tk.Tk):
 
         for col in range(3):
             grid.columnconfigure(col, weight=1)
-
 
         for i, (titulo, clave) in enumerate(items):
             var = tk.StringVar(value="0")
@@ -287,20 +239,18 @@ class MonitoreoGUI(tk.Tk):
                              style="Seccion.TLabelframe")
         caja.pack(fill="both", expand=True, pady=(10, 0))
 
-        #  Usamos Text para mostrar alertas con colores semánticos según severidad.
-        self._texto_alertas = tk.Text(caja, height=6, wrap="word", 
+        self._texto_alertas = tk.Text(caja, height=6, wrap="word",
                                       highlightthickness=0, borderwidth=0,
                                       font=("TkDefaultFont", 9),
                                       background=BG_PANEL, foreground=FG_TEXTO_PRINCIPAL,
-                                      state="disabled") # Comienza deshabilitado para evitar escritura
-        
+                                      state="disabled")
+
         scroll = ttk.Scrollbar(caja, orient="vertical", command=self._texto_alertas.yview)
         self._texto_alertas.configure(yscrollcommand=scroll.set)
-        
+
         self._texto_alertas.pack(side="left", fill="both", expand=True)
         scroll.pack(side="right", fill="y")
-        
-        # Configurar colores semánticos dentro del texto
+
         self._texto_alertas.tag_config("Alta", foreground=COLOR_SEVERIDAD["Alta"], font=("TkDefaultFont", 9, "bold"))
         self._texto_alertas.tag_config("Media", foreground=COLOR_SEVERIDAD["Media"])
         self._texto_alertas.tag_config("Baja", foreground=COLOR_SEVERIDAD["Baja"])
@@ -326,7 +276,6 @@ class MonitoreoGUI(tk.Tk):
             ttk.Label(fila, text=f"{clave}:").pack(side="left")
             ttk.Label(fila, text=valor, font=("TkDefaultFont", 9, "bold")).pack(side="right")
 
-    # -- Control de la simulación -------------------------------------------
     def _iniciar(self) -> None:
         if self._hilo and self._hilo.is_alive():
             return
@@ -341,7 +290,6 @@ class MonitoreoGUI(tk.Tk):
         )
 
         def trabajo() -> None:
-            # Corre en el HILO TRABAJADOR. Sólo publica snapshots en la cola.
             self._controlador.ejecutar(modo, publicar=self._cola.put)
 
         self._hilo = threading.Thread(target=trabajo, name="simulacion", daemon=True)
@@ -363,7 +311,6 @@ class MonitoreoGUI(tk.Tk):
             self._controlador.detener()
         self.destroy()
 
-    # -- Sondeo de la cola (HILO PRINCIPAL)
     def _sondear_cola(self) -> None:
         ultimo: SnapshotMonitoreo | None = None
         try:
@@ -381,7 +328,6 @@ class MonitoreoGUI(tk.Tk):
                 self._spin_ciclos.config(state="normal")
         self.after(INTERVALO_REFRESCO_MS, self._sondear_cola)
 
-    # -- Pintado de un snapshot (HILO PRINCIPAL)
     def aplicar_snapshot(self, snap: SnapshotMonitoreo) -> None:
         self._lbl_modo.config(text=f"Modo activo: {snap.modo.value}")
         self._lbl_ciclo.config(text=f"Ciclo: {snap.ciclo_actual} / {snap.ciclos_totales}")
@@ -391,7 +337,6 @@ class MonitoreoGUI(tk.Tk):
         else:
             self._lbl_estado_motor.config(text="● Detenido", foreground="#999999")
 
-        # Estaciones.
         self._tabla.delete(*self._tabla.get_children())
         for est in snap.estaciones:
             med = str(est.ultima_medicion) if est.ultima_medicion else "—"
@@ -402,7 +347,6 @@ class MonitoreoGUI(tk.Tk):
                 tags=(est.estado.name,),
             )
 
-        # Estadísticas.
         e = snap.estadisticas
         self._stats_vars["estaciones_totales"].set(str(e.estaciones_totales))
         self._stats_vars["estaciones_activas"].set(str(e.estaciones_activas))
@@ -412,7 +356,6 @@ class MonitoreoGUI(tk.Tk):
         self._stats_vars["tiempo_promedio_ciclo_s"].set(f"{e.tiempo_promedio_ciclo_s:.4f}")
         self._lbl_zona.config(text=e.zona_mayor_riesgo)
 
-        # Por variable.
         self._tabla_var.delete(*self._tabla_var.get_children())
         for var, ev in e.por_variable.items():
             self._tabla_var.insert(
@@ -420,28 +363,24 @@ class MonitoreoGUI(tk.Tk):
                 values=(var.etiqueta, f"{ev.promedio:.1f}", f"{ev.minimo:.1f}", f"{ev.maximo:.1f}"),
             )
 
-        # Alertas.
-        self._texto_alertas.config(state="normal") # Habilitar para escribir
-        self._texto_alertas.delete(1.0, "end")     # Limpiar todo
-        
+        self._texto_alertas.config(state="normal")
+        self._texto_alertas.delete(1.0, "end")
+
         if not snap.alertas:
             self._texto_alertas.insert("end", "Sin alertas activas.\n", "SinAlertas")
         else:
             for al in reversed(snap.alertas):
                 hora = al.instante.strftime("%H:%M:%S")
                 mensaje = f"[{hora}] {al.zona} — {al.mensaje} ({al.severidad})\n"
-                
-                # Insertar asignando el tag de color según severidad
+
                 self._texto_alertas.insert("end", mensaje, al.severidad)
-                
-        self._texto_alertas.config(state="disabled") # Volver a bloquear
+
+        self._texto_alertas.config(state="disabled")
 
 
 def main() -> None:
-    """Lanza la GUI."""
     app = MonitoreoGUI()
     app.mainloop()
-
 
 if __name__ == "__main__":
     main()

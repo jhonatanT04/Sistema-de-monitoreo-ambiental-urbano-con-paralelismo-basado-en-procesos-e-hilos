@@ -1,17 +1,12 @@
-"""Configuración de la simulación: estaciones de Cuenca y parámetros."""
-
 from __future__ import annotations
 
 from monitoreo.estacion import EstacionAmbiental
 from monitoreo.dominio import Variable
 
-# Ciclos de simulación por defecto (requisito: mínimo 10).
 CICLOS_DEFECTO = 12
 
-# Número de estaciones por defecto (requisito: mínimo 4).
 ESTACIONES_DEFECTO = 6
 
-# Todas las variables ambientales disponibles, en orden de preferencia.
 _TODAS_VARIABLES: list[Variable] = [
     Variable.TEMPERATURA,
     Variable.HUMEDAD,
@@ -21,8 +16,6 @@ _TODAS_VARIABLES: list[Variable] = [
     Variable.PM10,
 ]
 
-# Definición de estaciones reales de Cuenca: (nombre, zona, variables).
-# Cada una mide >= 3 variables (requisito).
 DEFINICION_ESTACIONES: list[tuple[str, str, list[Variable]]] = [
     (
         "Estación Centro",
@@ -88,23 +81,12 @@ DEFINICION_ESTACIONES: list[tuple[str, str, list[Variable]]] = [
 
 
 def _definicion_sintetica(indice: int) -> tuple[str, str, list[Variable]]:
-    """Genera la definición de una estación adicional (para tamaños grandes).
-
-    Permite escalar el número de estaciones más allá de las predefinidas, de
-    modo que se puedan probar los tamaños 4×10, 8×20 y 12×30 que pide la
-    práctica. Cada estación sintética mide 4 variables rotadas.
-    """
     inicio = indice % len(_TODAS_VARIABLES)
     variables = [_TODAS_VARIABLES[(inicio + k) % len(_TODAS_VARIABLES)] for k in range(4)]
     return (f"Estación Zona {indice + 1}", f"Zona {indice + 1}", variables)
 
 
 def crear_estaciones(n: int = ESTACIONES_DEFECTO) -> list[EstacionAmbiental]:
-    """Construye la lista de `n` estaciones ambientales de la simulación.
-
-    Reutiliza las estaciones reales de Cuenca y, si se piden más de las
-    definidas, genera estaciones sintéticas para alcanzar el total `n`.
-    """
     n = max(1, n)
     definiciones: list[tuple[str, str, list[Variable]]] = []
     for i in range(n):

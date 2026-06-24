@@ -1,15 +1,3 @@
-"""Punto de entrada por consola: ejecuta y compara los tres modos.
-
-Uso:
-    python main.py                      # compara los 3 modos (línea base)
-    python main.py --modo procesos      # ejecuta un solo modo
-    python main.py --ciclos 15 --carga 800
-    python main.py --gui                # abre la interfaz gráfica
-
-La versión secuencial es la línea base de rendimiento; al final se imprime
-el speedup de hilos y procesos respecto a ella.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -43,7 +31,6 @@ def _imprimir_entorno() -> None:
 
 
 def _mediciones_por_segundo(mediciones: int, tiempo_s: float) -> float:
-    """Throughput: cuántas mediciones se procesan por segundo."""
     return mediciones / tiempo_s if tiempo_s else float("inf")
 
 
@@ -144,7 +131,6 @@ def main() -> None:
         ejecutar_modo(args.modo, args.ciclos, args.carga, args.estaciones)
     else:
         comparar(args.ciclos, args.carga, args.estaciones, args.repeticiones)
-
 
 if __name__ == "__main__":
     main()

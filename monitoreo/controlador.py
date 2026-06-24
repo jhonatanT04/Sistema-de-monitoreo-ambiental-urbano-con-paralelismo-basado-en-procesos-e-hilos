@@ -1,26 +1,3 @@
-"""Controlador central del sistema de monitoreo.
-
-`ControladorMonitoreo` coordina las estaciones en los tres modos de
-ejecución, recibe y almacena las mediciones, delega el análisis, genera
-alertas y registra métricas de rendimiento.
-
-Mecanismos de concurrencia usados (más de los dos exigidos en cada caso):
-
-* Hilos      -> threading.Lock (buffer y estado compartidos)
-                threading.Barrier (sincroniza el fin de cada ciclo)
-                threading.Event (señal de parada)
-* Procesos   -> multiprocessing.Queue (mediciones estación -> controlador)
-                multiprocessing.Barrier (sincroniza el inicio de cada ciclo)
-                multiprocessing.Event (señal de parada)
-                multiprocessing.Semaphore (limita cuántos procesos ejecutan el
-                    análisis CPU-bound a la vez)
-
-`publicar` es un callback opcional `Callable[[SnapshotMonitoreo], None]` que
-se invoca al final de cada ciclo. La GUI pasa `cola.put` (cola thread-safe);
-el callback SIEMPRE se ejecuta desde el hilo controlador, nunca desde las
-estaciones, evitando actualizaciones inseguras de la interfaz.
-"""
-
 from __future__ import annotations
 
 import multiprocessing as mp
@@ -45,16 +22,17 @@ from monitoreo.estacion import EstacionAmbiental
 Publicador = Callable[[SnapshotMonitoreo], None]
 
 
-# ---------------------------------------------------------------------------
-# Sentinels picklables para la comunicación por Queue (modo procesos).
-# ---------------------------------------------------------------------------
 @dataclass(frozen=True)
+
+
 class _FinCiclo:
     estacion_id: int
     ciclo: int
 
 
 @dataclass(frozen=True)
+
+
 class _FinEstacion:
     estacion_id: int
 
@@ -68,14 +46,6 @@ def _trabajo_estacion(
     stop: "mp.Event",
     semaforo_analisis: "mp.Semaphore",
 ) -> None:
-    """Cuerpo de cada proceso-estación (modo procesos).
-
-    Sincroniza el inicio de cada ciclo con `barrera`, genera mediciones (con
-    el cálculo CPU-bound), y las envía al controlador por `cola`. El cálculo
-    intensivo se protege con `semaforo_analisis` para que no más de N procesos
-    analicen a la vez (evita saturar la CPU). Termina al completar los ciclos
-    o cuando `stop` se activa.
-    """
     for ciclo in range(ciclos):
         if stop.is_set():
             break
@@ -83,7 +53,7 @@ def _trabajo_estacion(
             barrera.wait()
         except threading.BrokenBarrierError:
             break
-        with semaforo_analisis:  # limita el análisis CPU-bound concurrente
+        with semaforo_analisis:
             mediciones, _ = estacion.trabajar_ciclo(ciclo, carga_cpu)
         for m in mediciones:
             cola.put(m)
@@ -91,9 +61,7 @@ def _trabajo_estacion(
     cola.put(_FinEstacion(estacion.id))
 
 
-# ---------------------------------------------------------------------------
 class ControladorMonitoreo:
-    """Coordina estaciones, mediciones, análisis, alertas y métricas."""
 
     def __init__(
         self,
@@ -111,12 +79,10 @@ class ControladorMonitoreo:
             self.estaciones = crear_estaciones()
         self.ciclos = ciclos
         self.analizador = AnalizadorDatos(carga_cpu)
-        # Máximo de procesos que ejecutan el análisis CPU-bound a la vez.
         self.max_analisis = max_analisis if max_analisis is not None else mp.cpu_count()
         self._stop = threading.Event()
         self._reset()
 
-    # -- Estado interno -----------------------------------------------------
     def _reset(self) -> None:
         self._lock = threading.Lock()
         self._buffer: list[Medicion] = []
@@ -132,10 +98,8 @@ class ControladorMonitoreo:
             e.estado = EstadoEstacion.ESPERANDO
 
     def detener(self) -> None:
-        """Solicita la parada anticipada de la simulación en curso."""
         self._stop.set()
 
-    # -- Registro de mediciones / alertas (protegido por lock) --------------
     def _registrar(self, mediciones: list[Medicion]) -> None:
         with self._lock:
             self._buffer.extend(mediciones)
@@ -144,10 +108,7 @@ class ControladorMonitoreo:
                 if m.en_alerta:
                     self._alertas.append(AlertaAmbiental.desde_medicion(m))
 
-    # -- Construcción de snapshots ------------------------------------------
     def _estado_de(self, est: EstacionAmbiental) -> EstadoEstacion:
-        # En procesos el estado lo lleva el controlador (_estado_map);
-        # en secuencial/hilos refleja el atributo vivo de la estación.
         return self._estado_map.get(est.id, est.estado)
 
     def _snapshot(
@@ -215,9 +176,6 @@ class ControladorMonitoreo:
             e.estado = EstadoEstacion.FINALIZADA
             self._estado_map[e.id] = EstadoEstacion.FINALIZADA
 
-    # ======================================================================
-    # Modo 1: SECUENCIAL
-    # ======================================================================
     def ejecutar_secuencial(self, publicar: Publicador | None = None) -> SnapshotMonitoreo:
         self._reset()
         self._t0 = perf_counter()
@@ -239,13 +197,10 @@ class ControladorMonitoreo:
             publicar, ModoEjecucion.SECUENCIAL, self._ciclo_completado(), False
         )
 
-    # ======================================================================
-    # Modo 2: HILOS (Lock + Barrier + Event)
-    # ======================================================================
     def ejecutar_hilos(self, publicar: Publicador | None = None) -> SnapshotMonitoreo:
         self._reset()
         n = len(self.estaciones)
-        barrera = threading.Barrier(n + 1)  # estaciones + controlador
+        barrera = threading.Barrier(n + 1)
         stop = self._stop
 
         def correr(est: EstacionAmbiental) -> None:
@@ -254,10 +209,10 @@ class ControladorMonitoreo:
                     break
                 self._estado_map[est.id] = EstadoEstacion.PROCESANDO
                 mediciones, _ = est.trabajar_ciclo(ciclo, self.analizador.carga)
-                self._registrar(mediciones)  # protegido por Lock
+                self._registrar(mediciones)
                 self._estado_map[est.id] = EstadoEstacion.ESPERANDO
                 try:
-                    barrera.wait()  # esperar a que todas terminen el ciclo
+                    barrera.wait()
                 except threading.BrokenBarrierError:
                     break
 
@@ -275,7 +230,7 @@ class ControladorMonitoreo:
                 barrera.abort()
                 break
             try:
-                barrera.wait()  # el controlador participa: fin de ciclo
+                barrera.wait()
             except threading.BrokenBarrierError:
                 break
             ahora = perf_counter()
@@ -290,9 +245,6 @@ class ControladorMonitoreo:
             publicar, ModoEjecucion.HILOS, self._ciclo_completado(), False
         )
 
-    # ======================================================================
-    # Modo 3: PROCESOS (Queue + Barrier + Event)
-    # ======================================================================
     def ejecutar_procesos(self, publicar: Publicador | None = None) -> SnapshotMonitoreo:
         self._reset()
         n = len(self.estaciones)
@@ -300,7 +252,6 @@ class ControladorMonitoreo:
         cola: mp.Queue = ctx.Queue()
         barrera = ctx.Barrier(n)
         stop_mp = ctx.Event()
-        # Semáforo: limita cuántos procesos analizan (CPU-bound) a la vez.
         semaforo = ctx.Semaphore(max(1, min(self.max_analisis, n)))
 
         procesos = [
@@ -358,11 +309,9 @@ class ControladorMonitoreo:
             publicar, ModoEjecucion.PROCESOS, self._ciclo_completado(), False
         )
 
-    # ======================================================================
     def ejecutar(
         self, modo: ModoEjecucion, publicar: Publicador | None = None
     ) -> SnapshotMonitoreo:
-        """Despacha al modo solicitado."""
         if modo == ModoEjecucion.SECUENCIAL:
             return self.ejecutar_secuencial(publicar)
         if modo == ModoEjecucion.HILOS:
