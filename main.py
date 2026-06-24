@@ -42,8 +42,15 @@ def _imprimir_entorno() -> None:
     print("=" * 70)
 
 
-def _imprimir_estadisticas(stats: Estadisticas) -> None:
+def _mediciones_por_segundo(mediciones: int, tiempo_s: float) -> float:
+    """Throughput: cuántas mediciones se procesan por segundo."""
+    return mediciones / tiempo_s if tiempo_s else float("inf")
+
+
+def _imprimir_estadisticas(stats: Estadisticas, tiempo_s: float | None = None) -> None:
+    dt = tiempo_s if tiempo_s is not None else stats.tiempo_total_s
     print(f"  Mediciones procesadas : {stats.mediciones_procesadas}")
+    print(f"  Mediciones/segundo    : {_mediciones_por_segundo(stats.mediciones_procesadas, dt):.1f} med/s")
     print(f"  Alertas generadas     : {stats.alertas_generadas}")
     print(f"  Zona de mayor riesgo  : {stats.zona_mayor_riesgo}")
     print(f"  Tiempo total          : {stats.tiempo_total_s:.3f} s")
@@ -61,6 +68,7 @@ def comparar(ciclos: int, carga: int, estaciones: int, repeticiones: int = 1) ->
     print(f"Configuración: {estaciones} estaciones × {ciclos} ciclos · "
           f"{repeticiones} repetición(es) por modo\n")
     tiempos: dict[ModoEjecucion, float] = {}
+    mediciones: dict[ModoEjecucion, int] = {}
     for modo in ModoEjecucion:
         muestras: list[float] = []
         snap = None
@@ -73,10 +81,11 @@ def comparar(ciclos: int, carga: int, estaciones: int, repeticiones: int = 1) ->
             muestras.append(perf_counter() - t)
         dt = sum(muestras) / len(muestras)
         tiempos[modo] = dt
+        mediciones[modo] = snap.estadisticas.mediciones_procesadas if snap else 0
         detalle = "  ".join(f"{m:.3f}s" for m in muestras)
         print(f"\n>>> MODO {modo.value.upper()}  (promedio {dt:.3f} s · muestras: {detalle})")
         if snap is not None:
-            _imprimir_estadisticas(snap.estadisticas)
+            _imprimir_estadisticas(snap.estadisticas, dt)
 
     base = tiempos[ModoEjecucion.SECUENCIAL]
     t_hilos = tiempos[ModoEjecucion.HILOS]
@@ -84,9 +93,11 @@ def comparar(ciclos: int, carga: int, estaciones: int, repeticiones: int = 1) ->
     print("\n" + "=" * 70)
     print("COMPARATIVA DE RENDIMIENTO (línea base: secuencial)")
     print("=" * 70)
+    print(f"  {'Modo':11} {'Tiempo':>9}   {'Mediciones/s':>13}   {'Speedup':>8}")
     for modo, dt in tiempos.items():
         speedup = base / dt if dt else float("inf")
-        print(f"  {modo.value:11} {dt:7.3f} s   speedup x{speedup:.2f}")
+        throughput = _mediciones_por_segundo(mediciones[modo], dt)
+        print(f"  {modo.value:11} {dt:7.3f} s   {throughput:11.1f}    x{speedup:.2f}")
     print("-" * 70)
     print(f"  Sthread  = Ts / Tthread  = {base:.3f} / {t_hilos:.3f} = "
           f"x{(base / t_hilos if t_hilos else float('inf')):.2f}")
