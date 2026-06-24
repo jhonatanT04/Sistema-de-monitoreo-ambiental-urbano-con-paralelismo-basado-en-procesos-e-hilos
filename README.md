@@ -13,7 +13,7 @@ interfaz gráfica con **Tkinter**.
 
 ---
 
-## 📂 Estructura del proyecto
+## Estructura del proyecto
 
 ```
 .
@@ -41,7 +41,7 @@ interfaz gráfica con **Tkinter**.
 
 ---
 
-## ⚙️ Requisitos e instalación
+## Requisitos e instalación
 
 - **Python 3.13+** (probado en 3.14).
 - **Tkinter** (incluido en la mayoría de instalaciones de Python; en Linux puede
@@ -60,7 +60,7 @@ sudo apt install python3-tk
 
 ---
 
-## ▶️ Ejecución
+## Ejecución
 
 ### Interfaz gráfica (GUI)
 
@@ -72,7 +72,7 @@ python3 -m UserInterface
 
 En la ventana se elige el **modo** (Secuencial / Hilos / Procesos), el número de
 **estaciones** (4–12) y de **ciclos** (10–30) con los selectores de la barra
-superior, y se pulsa **▶ Iniciar**. Así se pueden probar los tamaños 4×10, 8×20
+superior, y se pulsa **Iniciar**. Así se pueden probar los tamaños 4×10, 8×20
 y 12×30 sin tocar el código. La GUI muestra el listado de estaciones, su estado
 (activa, esperando, procesando, finalizada), la última medición, las alertas
 activas, las estadísticas generales, el tiempo de ejecución, el modo activo y la
@@ -96,7 +96,7 @@ Con `--repeticiones N` cada modo se ejecuta `N` veces y se promedian los tiempos
 
 ---
 
-## 🔒 Mecanismos de concurrencia utilizados
+## Mecanismos de concurrencia utilizados
 
 La práctica exige **al menos 2** mecanismos por versión; este proyecto usa **3**
 en la versión de hilos y **4** en la de procesos.
@@ -132,7 +132,7 @@ problemas por la `Queue`.
 
 ---
 
-## 📊 Carga de análisis (para que la comparación tenga sentido)
+## Carga de análisis (para que la comparación tenga sentido)
 
 `AnalizadorDatos.indice_ambiental` calcula un **índice ambiental compuesto**
 mediante una **media móvil ponderada** con un kernel trigonométrico, repetida
@@ -142,7 +142,7 @@ lo que hace pedagógicamente comparable hilos vs. procesos.
 
 ---
 
-## 📈 Resultados y análisis comparativo
+## Resultados y análisis comparativo
 
 **Entorno de prueba:** Python 3.14 · Linux 6.17 · 20 núcleos · GIL activo.
 Cada configuración se ejecutó **3 veces**; los valores son el promedio.
@@ -172,7 +172,7 @@ Cada configuración se ejecutó **3 veces**; los valores son el promedio.
 
 ---
 
-## 🧪 Reproducir las pruebas
+## Reproducir las pruebas
 
 ```bash
 # Los tres tamaños pedidos, cada uno promediando 3 corridas por modo
@@ -183,7 +183,7 @@ python3 main.py --estaciones 12 --ciclos 30 --repeticiones 3
 
 ---
 
-## 📦 Entregables de la práctica
+## Entregables de la práctica
 
 - [x] Código en GitHub (este repositorio).
 - [x] README con instrucciones de instalación y ejecución.

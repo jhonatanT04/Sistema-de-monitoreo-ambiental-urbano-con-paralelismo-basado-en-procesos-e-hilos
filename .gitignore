@@ -1,0 +1,11 @@
+# Cachés de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Configuración local de Claude
+.claude/
+
+# Entornos virtuales
+.venv/
+venv/
