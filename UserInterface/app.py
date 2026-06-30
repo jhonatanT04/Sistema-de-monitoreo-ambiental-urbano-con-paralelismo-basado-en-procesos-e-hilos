@@ -105,7 +105,7 @@ class MonitoreoGUI(tk.Tk):
         barra = ttk.Frame(self, padding=(12, 10))
         barra.pack(fill="x")
 
-        ttk.Label(barra, text="🌆 Monitoreo Ambiental — Cuenca",
+        ttk.Label(barra, text="Monitoreo Ambiental — Cuenca",
                   style="Titulo.TLabel").pack(side="left")
 
         ttk.Label(barra, text="Modo:").pack(side="left", padx=(24, 4))
@@ -126,10 +126,10 @@ class MonitoreoGUI(tk.Tk):
         self._spin_ciclos.set(str(self._ciclos))
         self._spin_ciclos.pack(side="left")
 
-        self._btn_iniciar = ttk.Button(barra, text="▶ Iniciar", command=self._iniciar)
+        self._btn_iniciar = ttk.Button(barra, text="Iniciar", command=self._iniciar)
         self._btn_iniciar.pack(side="left", padx=(10, 4))
         self._btn_detener = ttk.Button(
-            barra, text="■ Detener", command=self._detener, state="disabled"
+            barra, text="Detener", command=self._detener, state="disabled"
         )
         self._btn_detener.pack(side="left")
 
